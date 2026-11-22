@@ -1420,11 +1420,8 @@ interface NarrowVerdict {
 /*
  * The verdict state of one pass, as pure functions.
  *
- * They live in this file rather than in a sibling module because
- * `tools/pack-extensions.test.ts` discovers every `Packs/<pack>/extensions/*.ts` as an extension
- * and asserts each one registers a tool under a stub api — so a helper sitting next to
- * `questions.ts` is read as a broken extension. Extracting them was tried on 2026-09-23 and
- * reverted for that reason; the fix is unchanged either way.
+ * They live in this file rather than in a sibling module because pi loads every `.ts` file
+ * passed with `-e` as an extension, and a helper module registers no tool.
  *
  * Every one returns a new array rather than mutating in place. The version before this pushed,
  * spliced and reassigned a single captured array from four call sites, and a reducer that returns

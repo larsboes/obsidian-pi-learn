@@ -146,11 +146,9 @@ Set `OBSIDIAN_VAULT` to target a different local vault. Reload the plugin in Obs
 
 ## Bundled pi files
 
-`pi/` came from Sjel (<https://github.com/larsboes/Sjel>) at revision `eec353fa`:
-`Packs/learning/skills/`, `Packs/learning/extensions/sessions.ts` and
-`Packs/knowledge/extensions/questions.ts`. The skills no longer route through Sjel's `obsidian`
-skill. They read the vault's `AGENTS.md` and contract instead. `practice` paraphrases
-LearnHarness and names its source in the skill.
+`pi/skills/` holds `teach`, `practice` and `curate`. `pi/extensions/` holds `questions.ts`
+(the `quiz` and `ask` tools) and `sessions.ts` (the `/learn-sessions` command). The skills read
+the vault's `AGENTS.md` and the contract it names before they write.
 
 ## Acknowledgements
 

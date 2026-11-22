@@ -7,7 +7,7 @@ the clean result.
 ## Method
 
 Two rules set the order of a session and the shape of each step. They paraphrase the teaching
-method of LearnHarness (`upstreams.toml`, `[learnharness]`), which names 3Blue1Brown as its
+method of LearnHarness (<https://github.com/amosblomqvist/learnharness>), which names 3Blue1Brown as its
 reference.
 
 1. **Start from what the learner can accept as-is.** Find the few facts the learner can take

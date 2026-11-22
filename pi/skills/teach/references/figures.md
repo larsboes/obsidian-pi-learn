@@ -18,14 +18,14 @@ Read this at Phase 3, step 3, when a figure carries the idea better than text do
 ## Build in the background
 
 A figure build must not stop the teaching. This follows the demo builder of LearnHarness
-(`upstreams.toml`, `[learnharness]`).
+(<https://github.com/amosblomqvist/learnharness>).
 
 1. Write a brief that stands alone. The builder does not see the conversation. The brief gives
    the concept, the prediction that the figure answers, each control and what it changes, the
    formulas and constants, the readout and the assumptions for the caption.
 2. Start the build in a background agent: pi-subagents in Pi, the `Agent` tool in Claude Code.
    Tell the learner in one line that a figure is in progress, then continue to teach.
-3. The builder writes the asset, renders it with `tools/figure-shot`, reads both PNGs, and fixes
+3. The builder writes the asset, renders it in light and dark, reads both PNGs, and fixes
    the figure until every number and state on it is true. It reports the path only after that
    check.
 4. When the figure arrives, embed it and teach with it. Name the control and the value to try:
@@ -115,7 +115,7 @@ height: 380
 
 ## Anatomy figures
 
-- Anatomy is an upstream skill (`upstreams.toml`, `[anatomy]`), installed globally in
+- Anatomy is an upstream skill (<https://github.com/wheresryan22/anatomy>), installed globally in
   `~/.agents/skills/anatomy`. Load it by name. If it is not installed, write a hand-written
   figure instead.
 - Build only Anatomy's Figure tier (one mechanism, 40–80 parts) during a session. A Figure can
@@ -133,8 +133,9 @@ height: 380
 
 ## Check before embedding
 
-1. Render the figure to a PNG and read the PNG. For an `interactive` figure, run
-   `tools/figure-shot <asset.html>` in the Sjel checkout; it renders light and dark. For SVG, use `qlmanage -t -s 1000 -o /tmp
+1. Render the figure to a PNG and read the PNG. For an `interactive` figure, open its note
+   in Obsidian and run `obsidian dev:screenshot` in light and dark, or screenshot the HTML in a
+   headless browser. For SVG, use `qlmanage -t -s 1000 -o /tmp
    <file>.svg`. For an Anatomy page, use
    `node ~/.agents/skills/anatomy/scripts/capture.mjs` (Anatomy's `references/verify.md`).
 2. Open the note in Obsidian and check both themes, the note width, the controls and a reopen of
