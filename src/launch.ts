@@ -23,20 +23,50 @@ export interface Launch {
   shell?: boolean;
 }
 
+/** Files Learn ships for pi: the `questions` and `sessions` extensions and the skill folder. */
+export interface PiResources {
+  extensions: string[];
+  skills: string[];
+}
+
 const quote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+
+/**
+ * The bundled `pi/` folder inside the deployed plugin. `pluginDir` is Obsidian's vault-relative
+ * `manifest.dir`. The separator follows the vault path, so Windows paths stay Windows paths.
+ */
+export function learnResources(vaultPath: string, pluginDir: string): PiResources {
+  const sep = vaultPath.includes('\\') ? '\\' : '/';
+  const root = [vaultPath.replace(/[\\/]+$/, ''), ...pluginDir.split('/'), 'pi'].join(sep);
+  return {
+    extensions: ['questions.ts', 'sessions.ts'].map((name) => [root, 'extensions', name].join(sep)),
+    skills: [[root, 'skills'].join(sep)],
+  };
+}
+
+/** `-e` and `--skill` arguments (`pi --help`), each path passed through `path`. */
+function resourceArgs(resources: PiResources | undefined, path: (p: string) => string): string[] {
+  if (!resources) return [];
+  return [
+    ...resources.extensions.flatMap((p) => ['-e', path(p)]),
+    ...resources.skills.flatMap((p) => ['--skill', path(p)]),
+  ];
+}
 
 /**
  * How to start `pi --mode rpc` in the vault on this platform.
  *
  * macOS and Linux go through the login shell, because an app started from the Dock or a desktop
  * launcher does not inherit the PATH that holds pi. Windows starts pi natively through cmd, or
- * inside WSL, where `wslpath` turns the Windows vault path into the Linux one.
+ * inside WSL, where `wslpath` turns the Windows vault path into the Linux one. `resources`
+ * load Learn's own extensions and skills, so pi's user settings need not list them.
  */
 export function buildLaunch(
   settings: LaunchSettings,
   vaultPath: string,
   platform: string,
   env: Record<string, string | undefined>,
+  resources?: PiResources,
 ): Launch {
   const pi = settings.piCommand.trim() || 'pi';
   const args = ['--mode', 'rpc'];
@@ -44,19 +74,21 @@ export function buildLaunch(
   if (platform === 'win32' && settings.launcher === 'wsl') {
     const script =
       `cd "$(wslpath -u ${quote(vaultPath)})" && ` +
-      `PI_QUESTIONS_CLIENT=${QUESTIONS_PROTOCOL} exec ${pi} ${args.join(' ')}`;
+      `PI_QUESTIONS_CLIENT=${QUESTIONS_PROTOCOL} exec ${pi} ` +
+      [...args, ...resourceArgs(resources, (p) => `"$(wslpath -u ${quote(p)})"`)].join(' ');
     const distro = settings.wslDistro.trim() ? ['-d', settings.wslDistro.trim()] : [];
     return { command: 'wsl.exe', args: [...distro, '-e', 'bash', '-lc', script], env };
   }
 
   const childEnv = { ...env, PI_QUESTIONS_CLIENT: QUESTIONS_PROTOCOL };
   if (platform === 'win32') {
-    return { command: pi, args, cwd: vaultPath, env: childEnv, shell: true };
+    const extra = resourceArgs(resources, (p) => `"${p}"`);
+    return { command: pi, args: [...args, ...extra], cwd: vaultPath, env: childEnv, shell: true };
   }
   const shell = env.SHELL || '/bin/sh';
   return {
     command: shell,
-    args: ['-lc', `exec ${pi} ${args.join(' ')}`],
+    args: ['-lc', `exec ${pi} ${[...args, ...resourceArgs(resources, quote)].join(' ')}`],
     cwd: vaultPath,
     env: childEnv,
   };

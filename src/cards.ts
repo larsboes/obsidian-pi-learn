@@ -1,5 +1,5 @@
 /**
- * Inline cards for the `ask` and `quiz` widgets of `Packs/knowledge/extensions/questions.ts`.
+ * Inline cards for the `ask` and `quiz` widgets of `pi/extensions/questions.ts`.
  *
  * Each card takes the tool's parameters and resolves with the result object the TUI widget
  * returns, so the tool's own report reaches the model unchanged. The field meanings are defined

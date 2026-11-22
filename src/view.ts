@@ -1,7 +1,7 @@
 import { Component, ItemView, MarkdownRenderer, Modal, Notice, TFile, WorkspaceLeaf, setIcon } from 'obsidian';
 import type PiLearnPlugin from './main';
 import { askCard, quizCard, reviewCard } from './cards';
-import { QUESTIONS_PROTOCOL, THINKING_LEVELS, buildLaunch, splitModel } from './launch';
+import { QUESTIONS_PROTOCOL, THINKING_LEVELS, buildLaunch, learnResources, splitModel } from './launch';
 import { parsePath, pathGraph, progress, resumePoint, sittingPrompt, type Kind, type SittingBrief } from './path';
 import { curationNeighbors, isCuratableNote, isLearningNote, isLearningPath, learningPaths } from './catalog';
 import { organizationIssues } from './organization';
@@ -380,7 +380,9 @@ export class LearnView extends ItemView {
   private ensurePi(): PiRpc {
     if (this.disposed) throw new Error('Learn is closed');
     if (this.pi?.running) return this.pi;
-    const launch = buildLaunch(this.plugin.settings, this.vaultPath(), process.platform, process.env);
+    const vault = this.vaultPath();
+    const resources = this.plugin.manifest.dir ? learnResources(vault, this.plugin.manifest.dir) : undefined;
+    const launch = buildLaunch(this.plugin.settings, vault, process.platform, process.env, resources);
     const pi = new PiRpc(
       launch,
       (e) => { if (this.pi === pi) this.onEvent(e); },

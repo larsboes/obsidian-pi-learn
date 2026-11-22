@@ -5,15 +5,16 @@ write. It runs on macOS, Linux and Windows.
 
 ## What it does
 
-- Starts `pi --mode rpc` in the vault (`docs/rpc.md` in the pi package). Pi's own settings
-  supply the skills and extensions, so `teach`, `practice`, `curate` and the `questions` extension load as
-  they do in the terminal.
+- Starts `pi --mode rpc` in the vault (`docs/rpc.md` in the pi package) with the files in
+  [`pi/`](pi/): the `teach`, `practice` and `curate` skills and the `questions` and `sessions`
+  extensions (`src/launch.ts`). Pi's own settings and the vault's project skills load as well.
+  Do not list the bundled files in pi's settings too.
 - Renders ordinary Markdown, LaTeX and wikilinks in replies. Uses Learn's own validated
   `learn-activity` block for interactive exercises, independent of the Interactive plugin.
   Chat code fences are inert, and raw HTML and automatic embeds don't render.
   The path graph still renders as Mermaid under Plan.
 - Renders `quiz` and `ask` as inline cards. It sets `PI_QUESTIONS_CLIENT=pi-questions/v1`.
-  `Packs/knowledge/extensions/questions.ts` sends JSON through an `editor` dialog for quizzes
+  `pi/extensions/questions.ts` sends JSON through an `editor` dialog for quizzes
   and an abortable `input` dialog for decisions. Decision cards wait for an answer or explicit
   cancellation, without an idle timeout, pending queue or resume command. Card results retain
   answer, thinking, confidence, note and contest. Cancellation grants nothing.
@@ -56,7 +57,7 @@ the plugin does not enforce them as a filesystem policy. Finish verifies saved e
 summarizes pending proposals without creating a teaching/practice log entry. Each mode remembers
 its own model and thinking level. Open a note and choose Curate, or select Curate in the planner.
 
-Pi saves conversations in its native session directory. `Packs/learning/extensions/sessions.ts`
+Pi saves conversations in its native session directory. `pi/extensions/sessions.ts`
 uses Pi's session discovery to return metadata for the current vault, including older Learn
 sittings. Continue switches to a saved session and restores its messages without a model call;
 answered cards appear as read-only receipts. Live, unsubmitted card inputs do not survive a
@@ -114,10 +115,12 @@ sitting. Required record-write failures still prevent the closed acknowledgement
 
 `Resources/Vault Layout.json` supplies the vault-relative `learning`, `knowledge`, `resources`
 and `log` paths for the plugin and skills. Without it, the defaults are `Learning`, `Knowledge`,
-`Resources` and `Learning/Learning Log.md`. Roots must be distinct and non-overlapping; the log
-must be inside the learning folder. The plugin reads the layout at startup and before review.
+`Resources` and `Learning/Learning Log.md`. Resources must not overlap the other two roots.
+Learning may be the same folder as Knowledge or a folder inside it. Knowledge must not sit
+inside Learning. The log must be
+inside the learning folder. The plugin reads the layout at startup and before review.
 
-**Learn (Sjel): Check vault structure** previews misplaced typed notes, missing required metadata and
+**Learn: Check vault structure** previews misplaced typed notes, missing required metadata and
 unresolved wikilinks. Each Apply move action uses Obsidian's file manager, respects its link-update
 setting and refuses existing destinations. Ambiguous notes require inspection; the command
 does not infer semantic duplicates, merge notes, move figures or change learning evidence.
@@ -138,7 +141,20 @@ discoverable by their heading. The hub lists reusable knowledge and supporting r
 bun run deploy
 ```
 
+Deploy copies `main.js`, `manifest.json`, `styles.css` and `pi/` into the vault's plugin folder.
 Set `OBSIDIAN_VAULT` to target a different local vault. Reload the plugin in Obsidian.
+
+## Bundled pi files
+
+`pi/` came from Sjel (<https://github.com/larsboes/Sjel>) at revision `eec353fa`:
+`Packs/learning/skills/`, `Packs/learning/extensions/sessions.ts` and
+`Packs/knowledge/extensions/questions.ts`. The skills no longer route through Sjel's `obsidian`
+skill. They read the vault's `AGENTS.md` and contract instead. `practice` paraphrases
+LearnHarness and names its source in the skill.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
 
 `bun run check` in this directory typechecks `src/` and runs `tests/` against linkedom: the cards'
 keyboard and cancellation paths, sitting start, reset and finish, pending dialogs, and scroll
