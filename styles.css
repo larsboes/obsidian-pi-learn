@@ -459,6 +459,25 @@
 .learn-hub-practice { margin-block: var(--learn-space); border-block: 1px solid var(--learn-border); padding-block: var(--learn-space); }
 .learn-hub-practice li { margin-block: var(--size-4-2); }
 .learn-hub-practice li button { margin-inline-start: var(--learn-space); }
+
+.pi-learn-experiment {
+  display: grid;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  margin: 0.6em 0;
+  padding: 0.75em;
+  border: 1px solid var(--learn-border);
+  border-radius: var(--learn-corner);
+}
+.pi-learn-experiment legend { font-weight: var(--font-semibold); }
+.pi-learn-experiment p { margin: 0; }
+.pi-learn-experiment label { display: grid; gap: 0.3rem; }
+.pi-learn-experiment input[type=range] { width: 100%; margin: 0; }
+.pi-learn-experiment-assumptions { color: var(--text-muted); }
+.pi-learn-experiment-plot { display: block; width: 100%; max-height: 9rem; }
+.pi-learn-experiment-bounds { stroke: var(--learn-border); }
+.pi-learn-experiment-line { fill: none; stroke: var(--interactive-accent); stroke-width: 2.5; }
+.pi-learn-experiment button { justify-self: start; }
 @media (max-width: 600px) {
   .learn-hub-toolbar { align-items: flex-start; flex-direction: column; }
   .learning-hub h1 { font-size: 1.5em; }

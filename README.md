@@ -8,8 +8,10 @@ write. It runs on macOS, Linux and Windows.
 - Starts `pi --mode rpc` in the vault (`docs/rpc.md` in the pi package). Pi's own settings
   supply the skills and extensions, so `teach`, `practice`, `curate` and the `questions` extension load as
   they do in the terminal.
-- Renders replies with Obsidian's Markdown renderer. `interactive` figures, mermaid, LaTeX and
-  `[[links]]` render inside the chat through the plugins that already handle them in notes.
+- Renders ordinary Markdown, LaTeX and wikilinks in replies. Uses Learn's own validated
+  `learn-activity` block for interactive exercises, independent of the Interactive plugin.
+  Chat code fences are inert, and raw HTML and automatic embeds don't render.
+  The path graph still renders as Mermaid under Plan.
 - Renders `quiz` and `ask` as inline cards. It sets `PI_QUESTIONS_CLIENT=pi-questions/v1`.
   `Packs/knowledge/extensions/questions.ts` sends JSON through an `editor` dialog for quizzes
   and an abortable `input` dialog for decisions. Decision cards wait for an answer or explicit
@@ -66,6 +68,24 @@ node whose prerequisites are held. Cycles, multiple current nodes and unsupporte
 syntax require inspection rather than selecting an arbitrary node. Directed dependency chains
 with `-->`, `-.->` and `==>` are supported. With no learning path open, type a topic first. A message sent while pi works becomes a steer.
 
+## Learn activities
+
+New Teach and Practice sittings tell Pi how to offer a bounded-queue exercise. Ask for a
+prediction before showing the widget; then ask what changed and why. Use that explanation to
+pick a contrast or transfer case. An activity does not grade or mark a learning-path node held.
+
+````markdown
+```learn-activity
+{"version":1,"kind":"queue","title":"Bounded queue","prompt":"When does the buffer fill?","capacity":20,"arrival":8,"service":6,"initial":0,"seconds":20}
+```
+````
+
+Place this top-level block in a completed Learn reply with a written fallback. All numbers
+are integers: capacity 1–1000, arrival 0–100, service 0–200, initial 0–capacity, seconds
+1–120. Unsupported or malformed specs don't mount. Moving the slider calls no model and
+records nothing; describe the observation in chat if it should inform the next turn.
+History shows a read-only copy of the original setup. This block is not a note embed.
+
 ## Dynamic home
 
 Embed the following in any home note, with optional `cssclasses: [learning-hub]` for the
@@ -110,17 +130,15 @@ discoverable by their heading. The hub lists reusable knowledge and supporting r
 | pi command | The pi executable. macOS and Linux start it through the login shell, so a name on the shell's `PATH` works. |
 | Run pi in | Windows only: Windows, or WSL with the vault path translated by `wslpath`. |
 | Teach model, Practice model, Curate model | Picked with a fuzzy search over the models pi lists (`get_available_models`), with a thinking level each. Pi's default applies when unset. The footer's model chip and thinking menu change the running sitting and remember the choice for its kind. |
-| Follow edits | Open the note pi writes. |
+| Follow edits | After a successful write, open a plain note. A note with raw HTML or embeds does not open automatically; open it deliberately if trusted. |
 
 ## Build and install
 
 ```sh
-tools/obsidian-plugin pi-learn install
+bun run deploy
 ```
 
-Then reload the plugin in Obsidian. `tools/obsidian-plugin.test.ts` fails when the built or the
-installed copy is older than `src/`. `tools/pi-learn.test.ts` covers the path reader and the
-launch command per platform.
+Set `OBSIDIAN_VAULT` to target a different local vault. Reload the plugin in Obsidian.
 
 `bun run check` in this directory typechecks `src/` and runs `tests/` against linkedom: the cards'
 keyboard and cancellation paths, sitting start, reset and finish, pending dialogs, and scroll
@@ -134,8 +152,10 @@ The view needs Obsidian, so these checks are manual:
    starts, and the Teach, Practice and Finish controls stay visible after the first reply.
 2. A `quiz` card appears, takes thinking and confidence, and reveals the verdict. Its answered
    question stays expandable after Next, and Stop works during the reveal.
-3. The concept note pi writes opens in the main pane, and an `interactive` figure in a reply
-   renders.
+3. Start a new Teach sitting on bounded queues. After the prediction, the completed reply
+   mounts a slider. At 8 arrivals/s and 6 service/s, the empty 20-item queue fills after 10 s;
+   at 8 service/s, it stays empty. Change the slider with the keyboard and confirm that
+   nothing is sent until you describe the observation. Ordinary concept notes still follow edits.
 4. Press **Finish sitting**. The closing questions or summary arrive, and the controls report a
    closed sitting only when the skill completed its writes.
 5. Reload Learn, then choose Continue on the same track. The saved conversation opens without

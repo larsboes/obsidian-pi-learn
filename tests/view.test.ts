@@ -145,7 +145,7 @@ describe('sitting controls', () => {
     key(f.view.input, 'Enter');
     await flush();
     expect(f.calls.some((c) => c.type === 'new_session')).toBe(true);
-    expect(f.calls.find((c) => c.type === 'prompt' && c.message !== '/learn-sessions').message).toBe('/skill:teach Locality');
+    expect(f.calls.find((c) => c.type === 'prompt' && c.message !== '/learn-sessions').message).toMatch(/^\/skill:teach Locality\n\nIn Learn,/);
     expect(button(f.view.contentEl, 'Teach')).toBeDefined();
     expect(button(f.view.contentEl, 'Practice')).toBeDefined();
     expect(button(f.view.contentEl, 'Finish sitting').disabled).toBe(false);
@@ -168,7 +168,7 @@ describe('sitting controls', () => {
     button(f.view.resetModal.contentEl, 'Start fresh').click();
     await fresh;
     expect(f.calls.some((c) => c.type === 'new_session')).toBe(true);
-    expect(f.calls.find((c) => c.type === 'prompt' && c.message !== '/learn-sessions').message).toBe('/skill:practice Locality');
+    expect(f.calls.find((c) => c.type === 'prompt' && c.message !== '/learn-sessions').message).toMatch(/^\/skill:practice Locality\n\nIn Learn,/);
     expect(f.view.kind).toBe('practice');
   });
 
@@ -392,7 +392,7 @@ describe('saved learning sessions', () => {
     expect(f.view.resetModal).toBeNull();
     expect(f.calls.some((c) => c.type === 'new_session')).toBe(true);
     expect(f.calls.find((c) => c.type === 'set_session_name')?.name).toBe('Learn · teach · Locality');
-    expect(f.calls.find((c) => c.type === 'prompt')?.message).toBe('/skill:teach Locality');
+    expect(f.calls.find((c) => c.type === 'prompt')?.message).toMatch(/^\/skill:teach Locality\n\nIn Learn,/);
     expect(f.view.minutesInput.getAttribute('placeholder')).toBe('Optional');
   });
 
@@ -526,6 +526,34 @@ describe('header and follow-up safety', () => {
     expect(view.dotsEl.children).toHaveLength(1);
   });
 
+  test('Follow edits waits for success and does not auto-open executable figures or transclusions', async () => {
+    const { view, plugin } = await fixture();
+    plugin.settings.followEdits = true;
+    let opened = 0;
+    let body = 'A plain note.';
+    view.openInMain = async () => { opened++; };
+    view.app.vault.getAbstractFileByPath = () => new TFile('Note.md');
+    view.app.vault.read = async () => body;
+    const begin = () => view.onEvent({ type: 'tool_execution_start', toolCallId: 'w', toolName: 'write', args: { path: 'Note.md' } });
+    const end = (isError: boolean) => view.onEvent({ type: 'tool_execution_end', toolCallId: 'w', toolName: 'write', isError });
+    begin();
+    await flush();
+    expect(opened).toBe(0);
+    end(true);
+    await flush();
+    expect(opened).toBe(0);
+    for (const source of ['![[Other]]', '~~~html-embed\n...', '> ```interactive-view\n...', '<iframe>']) {
+      body = source;
+      begin(); end(false);
+      await flush();
+      expect(opened).toBe(0);
+    }
+    body = 'A plain note.';
+    begin(); end(false);
+    await flush();
+    expect(opened).toBe(1);
+  });
+
   test('a write that lands after close is not opened', async () => {
     const { view } = await fixture();
     let opened = 0;
@@ -534,6 +562,56 @@ describe('header and follow-up safety', () => {
     view.app.vault.getAbstractFileByPath = () => new TFile('Note.md');
     await view.follow('Note.md');
     expect(opened).toBe(0);
+  });
+});
+
+describe('Learn-only experiments', () => {
+  const spec = { version: 1, kind: 'queue', title: 'Bounded queue', prompt: 'What changed?', capacity: 20, arrival: 8, service: 6, initial: 0, seconds: 20 };
+  const fence = (payload: unknown = spec) => ['```learn-activity', JSON.stringify(payload), '```'].join('\n');
+
+  test('only a completed reply mounts the widget; controls do not send or reset on follow-up', async () => {
+    const { view, calls } = await fixture();
+    view.onEvent({ type: 'message_start', message: { role: 'assistant' } });
+    view.onEvent({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: fence() } });
+    await view.renderLive(view.live);
+    expect(view.streamEl.querySelector('.pi-learn-experiment')).toBeNull();
+    view.onEvent({ type: 'message_end', message: { role: 'assistant', stopReason: 'stop', content: [{ type: 'text', text: fence() }] } });
+    const experiment = view.streamEl.querySelector('.pi-learn-experiment');
+    const slider = experiment.querySelector('input');
+    expect(experiment.textContent).toContain('Full at 10 s.');
+    slider.value = '8';
+    slider.dispatchEvent(new Event('input'));
+    expect(experiment.textContent).toContain('Balanced; depth stays constant.');
+    expect(experiment.textContent).toContain('0/20 items');
+    message(view, 'Explain why.');
+    await flush();
+    expect(view.streamEl.querySelector('input[type=range]')).toBe(slider);
+    expect(slider.value).toBe('8');
+    expect(calls.filter((c) => c.type === 'prompt' || c.type === 'steer')).toHaveLength(0);
+    button(experiment, 'Reset experiment').click();
+    expect(slider.value).toBe('6');
+  });
+
+  test('validation and aborted output are inert; restored controls are read-only', async () => {
+    const { view } = await fixture();
+    message(view, fence({ ...spec, url: 'https://example.org' }));
+    message(view, fence(), 'aborted');
+    expect(view.streamEl.querySelector('.pi-learn-experiment')).toBeNull();
+    expect(view.streamEl.textContent).toContain('Experiment unavailable.');
+    view.restoreMessage({ role: 'assistant', stopReason: 'stop', content: fence() });
+    expect(view.streamEl.querySelector('input[type=range]').disabled).toBe(true);
+  });
+
+  test('raw HTML, embeds and executable fences are inert in replies', async () => {
+    const { view } = await fixture();
+    message(view, ['<img src="https://example.org/a">', '![[Note]]', '![image](https://example.org/b)',
+      '> ```html-embed', 'ordinary [[Note]]', '```interactive', 'file: demo.html', '```'].join('\n'));
+    expect(view.streamEl.textContent).toContain('&lt;img');
+    expect(view.streamEl.textContent).toContain('&#33;[[Note]]');
+    expect(view.streamEl.textContent).toContain('&#33;[image]');
+    expect(view.streamEl.textContent).toContain('&#96;&#96;&#96;html-embed');
+    expect(view.streamEl.textContent).toContain('ordinary [[Note]]');
+    expect(view.streamEl.querySelector('pre code').textContent).toBe('file: demo.html');
   });
 });
 

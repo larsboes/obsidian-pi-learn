@@ -5,6 +5,8 @@
  * `## Learning Path` section with one mermaid graph, and a node state given by its class.
  */
 
+import { ACTIVITY_GUIDE } from './activity';
+
 export type NodeState = 'held' | 'current' | 'open';
 
 export interface PathNode {
@@ -136,5 +138,6 @@ export function sittingPrompt(kind: Kind, path: string | null, focus: string | n
   if ((path || focus) && topic) prompt += ` ${topic}`;
   if (brief.outcome?.trim()) prompt += `\nDesired outcome: ${brief.outcome.trim()}`;
   if (brief.minutes !== undefined) prompt += `\nTime budget: ${brief.minutes} minutes. Plan within this budget and reserve time to close; stop with an honest handoff if work remains.`;
+  if (kind !== 'curate') prompt += `\n\n${ACTIVITY_GUIDE}`;
   return prompt;
 }

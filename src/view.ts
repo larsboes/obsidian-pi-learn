@@ -7,6 +7,7 @@ import { curationNeighbors, isCuratableNote, isLearningNote, isLearningPath, lea
 import { organizationIssues } from './organization';
 import { ModelPicker, SessionPicker } from './picker';
 import { PiRpc, modelKey, type LearnSession, type PiEvent, type PiModel } from './rpc';
+import { canFollowNote, renderReply } from './reply';
 
 export const VIEW_TYPE = 'pi-learn';
 
@@ -33,6 +34,8 @@ export class LearnView extends ItemView {
   private kind: Kind = 'teach';
   private live: Live | null = null;
   private components: Component[] = [];
+  private pendingWrites = new Map<string, string>();
+  private transcriptVersion = 0;
   private pathFile: TFile | null = null;
   /** The open note when it is not a path note: the concept a sitting starts from. */
   private focusFile: TFile | null = null;
@@ -229,6 +232,8 @@ export class LearnView extends ItemView {
   }
 
   private clearTranscript() {
+    this.transcriptVersion++;
+    this.pendingWrites.clear();
     if (this.live?.timer !== null && this.live?.timer !== undefined) window.clearTimeout(this.live.timer);
     this.live = null;
     this.activity = null;
@@ -572,14 +577,14 @@ export class LearnView extends ItemView {
       if (shown) this.bubble(shown);
     } else if (message.role === 'assistant') {
       this.startAssistant();
-      this.endAssistant(message);
+      this.endAssistant(message, true);
     } else if (message.role === 'toolResult' && (message.toolName === 'ask' || message.toolName === 'quiz')) {
       const receipt = this.streamEl.createEl('details', { cls: 'pi-learn-card-archive' });
       receipt.createEl('summary', { text: `Saved ${message.toolName} result · read-only` });
       const component = new Component();
       component.load();
       this.components.push(component);
-      void MarkdownRenderer.render(this.app, content, receipt.createDiv(), this.pathFile?.path ?? '', component);
+      void renderReply(this.app, content, receipt.createDiv(), this.pathFile?.path ?? '', component, 'plain');
     }
   }
 
@@ -807,14 +812,19 @@ export class LearnView extends ItemView {
         if (e.message?.role === 'assistant') this.endAssistant(e.message);
         break;
       case 'tool_execution_start':
-        this.toolStarted(e.toolName, e.args ?? {});
+        this.toolStarted(e.toolCallId, e.toolName, e.args ?? {});
         break;
-      case 'tool_execution_end':
+      case 'tool_execution_end': {
+        const path = this.pendingWrites.get(e.toolCallId);
+        this.pendingWrites.delete(e.toolCallId);
         if (e.isError) {
           if (this.closing) this.closeFailed = true;
           this.toolLine('alert-triangle', `${e.toolName} failed`, 'is-error');
+        } else if (path && !this.stopping && this.plugin.settings.followEdits) {
+          void this.follow(path);
         }
         break;
+      }
       case 'extension_ui_request':
         void this.uiRequest(e);
         break;
@@ -842,25 +852,25 @@ export class LearnView extends ItemView {
     }, 120);
   }
 
-  private async renderLive(live: Live) {
-    const old = live.component;
-    old.unload();
-    live.component = new Component();
-    live.component.load();
-    this.components[this.components.indexOf(old)] = live.component;
+  private async renderLive(live: Live, mode: 'stream' | 'final' | 'history' = 'stream') {
+    const index = this.components.indexOf(live.component);
+    if (this.disposed || index < 0) return;
+    live.component.unload();
+    const component = live.component = new Component();
+    component.load();
+    this.components[index] = component;
     live.el.empty();
-    const component = live.component;
-    await MarkdownRenderer.render(this.app, live.text, live.el, this.pathFile?.path ?? '', component);
-    if (this.disposed || !this.components.includes(component)) component.unload();
-    else this.scrollDown();
+    // An earlier async Markdown render can only complete in its own detached node.
+    await renderReply(this.app, live.text, live.el.createDiv(), this.pathFile?.path ?? '', component, mode);
+    if (!this.disposed && this.components.includes(component)) this.scrollDown();
   }
 
-  private endAssistant(message: any) {
+  private endAssistant(message: any, restored = false) {
     const live = this.live;
     this.live = null;
     if (!live) return;
     if (live.timer !== null) window.clearTimeout(live.timer);
-    const final = (message.content ?? [])
+    const final = typeof message.content === 'string' ? message.content : (message.content ?? [])
       .filter((c: any) => c.type === 'text')
       .map((c: any) => c.text)
       .join('\n\n');
@@ -878,7 +888,8 @@ export class LearnView extends ItemView {
       return;
     }
     this.activity = null;
-    void this.renderLive(live);
+    const completed = message.stopReason === 'stop' || (restored && message.stopReason == null);
+    void this.renderLive(live, completed ? (restored ? 'history' : 'final') : 'stream');
   }
 
   private showReplyError(raw: string) {
@@ -903,12 +914,12 @@ export class LearnView extends ItemView {
     this.scrollDown();
   }
 
-  private toolStarted(name: string, args: Record<string, any>) {
+  private toolStarted(id: string | undefined, name: string, args: Record<string, any>) {
     if (name === 'quiz' || name === 'ask') return; // their card arrives as a dialog
     if (WRITING_TOOLS.has(name) && typeof args.path === 'string') {
       const rel = this.vaultRelative(args.path);
       this.toolLine(name === 'write' ? 'file-plus' : 'pencil', rel ?? args.path);
-      if (rel && this.plugin.settings.followEdits) void this.follow(rel);
+      if (id && rel && this.plugin.settings.followEdits) this.pendingWrites.set(id, rel);
       return;
     }
     if (name === 'read' && typeof args.path === 'string') {
@@ -926,13 +937,20 @@ export class LearnView extends ItemView {
     return null;
   }
 
-  /** Show the note pi is writing in the main pane, once the write has landed. */
+  /** Follow a successful write only after checking the finished note, never a partial write. */
   private async follow(rel: string) {
-    if (!rel.endsWith('.md')) return;
-    for (let i = 0; i < 20; i++) {
-      if (this.disposed) return;
+    if (!rel.endsWith('.md') || rel.split('/').some((part) => !part || part === '..' || part === '.')) return;
+    const version = this.transcriptVersion;
+    const active = () => !this.disposed && !this.stopping && version === this.transcriptVersion;
+    for (let i = 0; i < 20 && active(); i++) {
       const f = this.app.vault.getAbstractFileByPath(rel);
-      if (f instanceof TFile) return this.disposed ? undefined : this.openInMain(f);
+      if (f instanceof TFile) {
+        try {
+          const text = await this.app.vault.read(f);
+          if (active() && canFollowNote(text)) await this.openInMain(f);
+        } catch { /* Obsidian may not have synced the file yet; never open it unchecked. */ }
+        return;
+      }
       await sleep(250);
     }
   }
@@ -985,7 +1003,7 @@ export class LearnView extends ItemView {
       const component = new Component();
       component.load();
       this.components.push(component);
-      void MarkdownRenderer.render(this.app, text, el, this.pathFile?.path ?? '', component);
+      void renderReply(this.app, text, el, this.pathFile?.path ?? '', component, 'plain');
     };
 
     if ((e.method === 'editor' || e.method === 'input') && typeof e.title === 'string' && e.title.startsWith(`${QUESTIONS_PROTOCOL} `)) {
