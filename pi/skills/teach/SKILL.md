@@ -91,3 +91,9 @@ closed sitting means its records were saved, not that its learning target was ma
 3. Update the `## Learning Path` graph: `held` only for nodes that passed the gate this session, `current` for the node the next session resumes at. A node that was taught but did not pass stays `current`.
 4. Append ONE line to the configured log (default `$VAULT/Learning/Learning Log.md`, create from the existing shape if missing): `- YYYY-MM-DD · <topic> · edge found: <one clause> · notes: [[A]], [[B]] · claims: <count> · next: <node and exact unresolved question or task>`. Add `pending: <unfinished gate, contest or claim review>` when relevant. On resume, read the latest matching handoff as well as the graph; pending work comes before new material. Check touched notes for placement, required metadata, links and asset paths before reporting successful writes. Fix clear local errors; report ambiguous moves or duplicates for review rather than silently merging or deleting notes. Create a subfolder only for three related notes.
 5. Tell the student in the terminal: what they now hold, which notes grew, and the natural next session — a `practice` session on the new claims, or the next teaching node.
+
+## Provenance
+
+The method started from the `teach` skill of <https://github.com/amosblomqvist/learn> (no
+license). The prediction step and claim extraction paraphrase
+<https://github.com/amosblomqvist/learnharness> (AGPL-3.0). This skill copies no text from either.

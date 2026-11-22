@@ -152,6 +152,18 @@ Set `OBSIDIAN_VAULT` to target a different local vault. Reload the plugin in Obs
 skill. They read the vault's `AGENTS.md` and contract instead. `practice` paraphrases
 LearnHarness and names its source in the skill.
 
+## Acknowledgements
+
+Learn's method started from Amos Blomqvist's pi learning system
+[amosblomqvist/learn](https://github.com/amosblomqvist/learn): the `teach` skill, the graded
+`quiz` and the `ask` popup. That repository has no license, so this one copies no code or text
+from it. The ideas came from it, and the implementation here is separate. In a check on
+2026-11-22, `pi/skills/teach/SKILL.md` shared no seven-word phrase with its `teach` skill.
+`pi/extensions/questions.ts` shared 0.7 % with its `quiz.ts`, all of it standard pi-tui key
+handling and theme calls. The prediction step, claim extraction and the `practice` skill
+paraphrase [amosblomqvist/learnharness](https://github.com/amosblomqvist/learnharness)
+(AGPL-3.0). No text is copied.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
