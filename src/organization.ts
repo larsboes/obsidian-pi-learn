@@ -15,11 +15,11 @@ export function organizationIssues(app: App): PlacementIssue[] {
     const root = isLearningPath(app, file) || ['exercise', 'learning-path', 'log'].includes(type) ? layout.learning
       : ['concept', 'claim', 'moc'].includes(type) ? layout.knowledge
       : ['reference', 'system'].includes(type) ? layout.resources : null;
+    const inScope = [layout.learning, layout.knowledge, layout.resources].some((folder) => file.path.startsWith(`${folder}/`));
+    if (!inScope && !root) continue;
     if (root && !file.path.startsWith(`${root}/`)) {
       const destination = `${root}/${file.name}`;
       issues.push({ file, destination, message: `Move to ${destination}: ${type ?? 'learning path'}` });
-    } else if (![layout.learning, layout.knowledge, layout.resources].some((folder) => file.path.startsWith(`${folder}/`))) {
-      issues.push({ file, message: 'Choose Learning, Knowledge or Resources after reviewing this note.' });
     }
     const missing = ['type', 'maturity', 'summary', 'categories'].filter((key) => frontmatter?.[key] === undefined);
     if (missing.length) issues.push({ file, message: `Missing metadata: ${missing.join(', ')}` });

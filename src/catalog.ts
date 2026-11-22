@@ -13,7 +13,8 @@ export function learningPaths(app: App): TFile[] {
 
 export function isLearningNote(app: App, file: TFile): boolean {
   const type = app.metadataCache.getFileCache(file)?.frontmatter?.type;
-  return file.path.startsWith(`${vaultLayout(app).knowledge}/`) && (type === 'note' || type === 'concept' || type === 'claim');
+  return file.path.startsWith(`${vaultLayout(app).knowledge}/`) &&
+    (type === 'note' || type === 'concept' || type === 'claim' || type === 'moc');
 }
 
 /** Content eligible for curation; vault rules, logs and hidden archives are excluded. */

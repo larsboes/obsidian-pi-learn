@@ -27,9 +27,16 @@ export async function loadLayout(app: App): Promise<VaultLayout> {
       throw new Error(`Invalid ${key} path in ${LAYOUT_FILE}`);
     layout[key] = path;
   }
-  const roots = [layout.learning, layout.knowledge, layout.resources];
-  if (roots.some((a, i) => roots.some((b, j) => i !== j && (a === b || a.startsWith(`${b}/`)))))
+  const overlap = (a: string, b: string) => a === b || a.startsWith(`${b}/`);
+  if (
+    overlap(layout.knowledge, layout.resources) ||
+    overlap(layout.resources, layout.knowledge) ||
+    overlap(layout.learning, layout.resources) ||
+    overlap(layout.resources, layout.learning) ||
+    (layout.learning !== layout.knowledge && overlap(layout.knowledge, layout.learning))
+  ) {
     throw new Error('Vault layout folders must not overlap');
+  }
   if (!layout.log.startsWith(`${layout.learning}/`) || !layout.log.endsWith('.md'))
     throw new Error('Learning Log must be a Markdown file inside Learning');
   layouts.set(app, layout);
